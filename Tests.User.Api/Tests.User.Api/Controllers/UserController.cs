@@ -1,22 +1,40 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using AutoMapper;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Tests.User.Api.Dto;
+using Tests.User.Api.Models;
+using Tests.User.Api.Repositories;
 
 namespace Tests.User.Api.Controllers
 {
+    [Route("api/[controller]/[action]")]
+    [ApiController]
     public class UserController : Controller
     {
+        private readonly IMapper _mapper;
+
+        private readonly IUserRepository _userRepository;
+        public UserController (IMapper mapper, IUserRepository userRepository){
+            _mapper=mapper;
+            _userRepository = userRepository;
+        }
         /// <summary>
         ///     Gets a user
         /// </summary>
         /// <param name="id">ID of the user</param>
         /// <returns></returns>
         [HttpGet]
-        [Route("api/users")]
-        public IActionResult Get(int id)
+        public async Task<IActionResult> GetUser(int id )
         {
-            DatabaseContext database = new DatabaseContext();
-            Models.User user = database.Users.Where(user => user.Id == id).First();
-            return Ok(user);
+            var user = _userRepository.GetUserByIdAsync(id);
+            var userDto = _mapper.Map<UserDto>(user.Result);
+            if (userDto != null){
+                return Ok(userDto);
+            } else {
+                return NotFound("Specified User Not Found");
+            }
         }
+
 
         /// <summary>
         ///     Create a new user
@@ -26,17 +44,10 @@ namespace Tests.User.Api.Controllers
         /// <param name="age">Age of the user (must be a number)</param>
         /// <returns></returns>
         [HttpPost]
-        [Route("api/users")]
-        public IActionResult Create(string firstName, string lastName, string age)
+        public async Task<IActionResult> CreateUser(UserDto userDto)
         {
-            DatabaseContext Database = new DatabaseContext();
-            Database.Users.Add(new Models.User
-            {
-                Age = age,
-                FirstName = firstName,
-                LastName = lastName
-            });
-            Database.SaveChanges();
+            await _userRepository.CreateUserAsync(userDto);
+            await _userRepository.SaveChangesAsyncUser();
             return Ok();
         }
 
@@ -49,19 +60,16 @@ namespace Tests.User.Api.Controllers
         /// <param name="age">Age of the user (must be a number)</param>
         /// <returns></returns>
         [HttpPut]
-        [Route("api/users")]
-        public IActionResult Update(int id, string firstName, string lastName, string age)
+        public async Task<IActionResult> Update(UserDto userDto)
         {
-            DatabaseContext Database = new DatabaseContext();
-            Database.Users.Update(new Models.User
-            {
-                Age = age,
-                FirstName = firstName,
-                LastName = lastName,
-                Id = id
-            });
-            Database.SaveChanges();
-            return Ok();
+            var user = _userRepository.UpdateUserAsync(userDto);
+            
+            if (user.Result != null){
+                await _userRepository.SaveChangesAsyncUser();
+                return Ok(_mapper.Map<UserDto>(user.Result));
+            } else {
+                return NotFound("Specified User Not found");
+            }
         }
 
         /// <summary>
@@ -70,16 +78,17 @@ namespace Tests.User.Api.Controllers
         /// <param name="id">ID of the user</param>
         /// <returns></returns>
         [HttpDelete]
-        [Route("api/users")]
-        public IActionResult Delete(int id)
+        public async Task<IActionResult> Delete(int id)
         {
-            DatabaseContext database = new DatabaseContext();
-            database.Users.Remove(new Models.User
-            {
-                Id = id
-            });
-            database.SaveChanges();
-            return Ok();
+            var user = _userRepository.DeleteUser(id);
+            
+            if (user.Result!=null){
+                await _userRepository.SaveChangesAsyncUser();
+                return Ok();
+            } else {
+                return NotFound("Specified User Not found");
+            }
+            
         }
     }
 }
